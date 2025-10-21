@@ -1,7 +1,10 @@
 package com.example.travel_destinations.controller;
 
 import com.example.travel_destinations.entity.Destination;
+import com.example.travel_destinations.entity.Message;
 import com.example.travel_destinations.repository.DestinationRepository;
+import com.example.travel_destinations.service.DestinationService;
+import com.example.travel_destinations.service.MessageProducer;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -21,6 +24,9 @@ public class DestinationController {
 
     @Autowired
     private DestinationRepository destinationRepository;
+
+    @Autowired
+    private DestinationService destinationService;
 
     //отримати всі destinations
     @GetMapping
@@ -85,7 +91,39 @@ public class DestinationController {
     public List<Destination> filterDestinations(@RequestParam Destination.DestinationCategory category, @RequestParam Double minRating) {
         return destinationRepository.findByCategoryAndMinRating(category, minRating);
     }
+    // ------ Rabbit MQ---------
+    @PostMapping
+    @Operation(summary = "Створити нове destination")
+    public ResponseEntity<Destination> createDestination(@Valid @RequestBody Destination destination) {
+        Destination savedDestination = destinationService.createDestination(destination);
+        return ResponseEntity.status(HttpStatus.CREATED).body(savedDestination);
+    }
 
+    @PutMapping("/{id}")
+    @Operation(summary = "Повністю оновити destination")
+    public ResponseEntity<Destination> updateDestination(
+            @PathVariable Long id,
+            @Valid @RequestBody Destination destinationDetails) {
+        try {
+            Destination updated = destinationService.updateDestination(id, destinationDetails);
+            return ResponseEntity.ok(updated);
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Видалити destination")
+    public ResponseEntity<Void> deleteDestination(@PathVariable Long id) {
+        try {
+            destinationService.deleteDestination(id);
+            return ResponseEntity.noContent().build();
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+/*
     // нове destination
     @PostMapping
     @Operation(summary = "Створити нове destination")
@@ -111,7 +149,7 @@ public class DestinationController {
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
-
+*/
     //Patch rating
     @PatchMapping("/{id}/rating")
     @Operation(summary = "Оновити рейтинг destination")
@@ -152,8 +190,27 @@ public class DestinationController {
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
+    @Autowired
+    private MessageProducer messageProducer;
 
-    // Delete
+    // Endpoint для тесту Exception
+    @PostMapping("/test-exception")
+    @Operation(summary = "Тест Exception Dead Letter Queue")
+    public ResponseEntity<String> testException() {
+        System.out.println("\n Відправка повідомлення для Exception");
+
+        Message errorMessage = new Message(
+                999L,
+                "Помилкові дані для тестування Exception handling",
+                "ErrorCountry",
+                "CREATE"  // RuntimeException
+        );
+
+        messageProducer.sendMessage(errorMessage);
+
+        return ResponseEntity.ok("Exception test message відправлено!");
+    }
+    /* Delete
     @DeleteMapping("/{id}")
     @Operation(summary = "Видалити destination")
     public ResponseEntity<Void> deleteDestination(@PathVariable Long id) {
@@ -163,7 +220,7 @@ public class DestinationController {
                     return ResponseEntity.noContent().<Void>build();
                 })
                 .orElse(ResponseEntity.notFound().build());
-    }
+    }*/
 
 
 
