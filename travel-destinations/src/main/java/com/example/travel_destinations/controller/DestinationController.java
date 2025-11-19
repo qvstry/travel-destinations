@@ -8,6 +8,8 @@ import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.annotation.Secured;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,45 +23,47 @@ public class DestinationController {
 
     @Autowired
     private DestinationRepository destinationRepository;
-
+//public
     //отримати всі destinations
-    @GetMapping
+    @GetMapping("/public/all")
     @Operation(summary = "Отримати всі destinations")
     public List<Destination> getAllDestinations() {
         return destinationRepository.findAll();
     }
-    // Count
-    @GetMapping("/count")
-    @Operation(summary = "Отримати кількість destinations")
-    public ResponseEntity<Long> getDestinationsCount() {
-        long count = destinationRepository.count();
-        return ResponseEntity.ok(count);
-    }
+
     // отримати destination по ID
-    @GetMapping("/{id}")
+    @GetMapping("/public/{id}")
     @Operation(summary = "Отримати destination по ID")
     public ResponseEntity<Destination> getDestinationById(@PathVariable Long id) {
         Optional<Destination> destination = destinationRepository.findById(id);
         return destination.map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
-
+    //manager
+    // Count
+    @GetMapping("/manager/count")
+    @Operation(summary = "Отримати кількість destinations")
+    public ResponseEntity<Long> getDestinationsCount() {
+        long count = destinationRepository.count();
+        return ResponseEntity.ok(count);
+    }
     //по країні
-    @GetMapping("/country/{country}")
+    @GetMapping("/manager/country/{country}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @Operation(summary = "Отримати destinations по країні")
     public List<Destination> getDestinationsByCountry(@PathVariable String country) {
         return destinationRepository.findByCountryIgnoreCase(country);
     }
 
     //по категорії
-    @GetMapping("/category/{category}")
+    @GetMapping("/public/category/{category}")
     @Operation(summary = "Отримати destinations по категорії")
     public List<Destination> getDestinationsByCategory(@PathVariable Destination.DestinationCategory category) {
         return destinationRepository.findByCategory(category);
     }
 
     //по найкращому season
-    @GetMapping("/season/{season}")
+    @GetMapping("/public/{season}")
     @Operation(summary = "Отримати destination по сезону")
     public List<Destination> getDestinationsBySeason(@PathVariable Destination.Season season) {
         return destinationRepository.findByBestSeason(season);
@@ -87,16 +91,18 @@ public class DestinationController {
     }
 
     // нове destination
-    @PostMapping
+    @PostMapping("/manager/create")
     @Operation(summary = "Створити нове destination")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<Destination> createDestination(@Valid @RequestBody Destination destination) {
         Destination savedDestination = destinationRepository.save(destination);
         return ResponseEntity.status(HttpStatus.CREATED).body(savedDestination);
     }
 
     //Put
-    @PutMapping("/{id}")
+    @PutMapping("/manager/update/{id}")
     @Operation(summary = "Повністю оновити destination")
+    @PreAuthorize("hasAnyRole('MANAGER', 'ADMIN')")
     public ResponseEntity<Destination> updateDestination(@PathVariable Long id,  @Valid @RequestBody Destination destinationDetails) {
         return destinationRepository.findById(id)
                 .map(destination -> {
@@ -154,7 +160,8 @@ public class DestinationController {
     }
 
     // Delete
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/admin/delete/{id}")
+   //@PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Видалити destination")
     public ResponseEntity<Void> deleteDestination(@PathVariable Long id) {
         return destinationRepository.findById(id)

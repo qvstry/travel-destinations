@@ -11,6 +11,7 @@ import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -35,29 +36,31 @@ public class TripController {
     private DestinationRepository destinationRepository;
 
     //всі trips
-    @GetMapping
+    @GetMapping("/public/all")
     @Operation(summary = "Отримати всі подорожі")
     public List<Trip> getAllTrips() {
         return tripRepository.findAll();
     }
     //count
-    @GetMapping("/count")
-    @Operation(summary = "Отримати кількість подорожей")
-    public ResponseEntity<Long> getTripsCount() {
-        long count = tripRepository.count();
-        return ResponseEntity.ok(count);
-    }
+
     //trip по id
-    @GetMapping("/{id}")
+    @GetMapping("public/{id}")
     @Operation(summary = "Отримати подорож по ID")
     public ResponseEntity<Trip> getTripById(@PathVariable Long id) {
         Optional<Trip> trip = tripRepository.findById(id);
         return trip.map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
-
+    @GetMapping("/manager/count")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @Operation(summary = "Отримати кількість подорожей")
+    public ResponseEntity<Long> getTripsCount() {
+        long count = tripRepository.count();
+        return ResponseEntity.ok(count);
+    }
     //trips by traveler
-    @GetMapping("/traveler/{travelerId}")
+    @GetMapping("/manager/traveler/{travelerId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @Operation(summary = "Отримати подорожі traveler")
     public List<Trip> getTripsByTraveler(@PathVariable Long travelerId) {
         return tripRepository.findByTravelerTravelerId(travelerId);
@@ -85,9 +88,10 @@ public class TripController {
         return tripRepository.findTripsToDestination(destinationId);
     }
 
-    // POST нову trip.
+    // POST нову trip
     @PostMapping
     @Operation(summary = "Створити нову подорож")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<Trip> createTrip(@Valid @RequestBody Trip trip, @RequestParam Long travelerId) {
         return travelerRepository.findById(travelerId)
                 .map(traveler -> {
@@ -106,7 +110,8 @@ public class TripController {
     }
 
     //Put
-    @PutMapping("/{id}")
+    @PutMapping("/manager/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @Operation(summary = "Повністю оновити подорож")
     public ResponseEntity<Trip> updateTrip(@PathVariable Long id, @Valid @RequestBody Trip tripDetails) {
         return tripRepository.findById(id)
@@ -198,7 +203,8 @@ public class TripController {
     }
 
     //delete destin from trip
-    @DeleteMapping("/{tripId}/destinations/{destinationId}")
+    @DeleteMapping("/admin/{tripId}/destinations/{destinationId}")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Видалити місце з подорожі")
     public ResponseEntity<Trip> removeDestinationFromTrip(@PathVariable Long tripId, @PathVariable Long destinationId) {
         Optional<Trip> tripOpt = tripRepository.findById(tripId);
@@ -221,7 +227,8 @@ public class TripController {
 
 
     //delete trip
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/admin/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Видалити подорож")
     public ResponseEntity<Void> deleteTrip(@PathVariable Long id) {
         return tripRepository.findById(id)
